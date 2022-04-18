@@ -1,24 +1,28 @@
 using System;
 using UnityEngine;
 
+[System.Serializable]
 public abstract class Action : MonoBehaviour
 {
-    public Action(float energy)
-    {
-        if (energy < 0)
-        {
-            throw new Exception("Negative Energy");
-        }
-        this.energy = energy;
-    }
-
-    private enum ActionStatus { idle, waiting, acting, updating };
-    private ActionStatus status;
+    protected enum ActionStatus { idle, waiting, acting, completed };
+    protected ActionStatus status;
 
     private float counter, delay, delta;
-    private float lerpScale;
+    protected float lerpScale;
 
-    private readonly float energy;
+    public float energy;
+    public Action nextAction;
+    public WorkerState CurrentState { get { return currentState; } }
+    public WorkerState FinalState { get { return finalState; } }
+    
+    [SerializeField]
+    protected WorkerState currentState { get; set; }
+    protected WorkerState finalState { get; set; }
+    public virtual void Initialize(float energy, WorkerState workerState)
+    {
+        this.energy = energy;
+        this.currentState = workerState;
+    }
 
     public float LerpScale
     {
@@ -31,14 +35,11 @@ public abstract class Action : MonoBehaviour
     /// Returns true if status is idle.
     /// </summary>
     /// <value><c>true</c> if idle; otherwise, <c>false</c>.</value>
-    public bool IsIdle
-    {
-        get { return (status == ActionStatus.idle); }
-    }
-
+    public bool IsIdle { get { return (status == ActionStatus.idle); } }
+    public bool IsCompleted { get { return (status == ActionStatus.completed); } }
 
     /// Use this for initialization
-	void Awake()
+	protected void Awake()
     {
         delay = 0f;
         counter = delta = 1f;
@@ -46,25 +47,25 @@ public abstract class Action : MonoBehaviour
     }
 
     /// Update is called once per frame
-    void Update()
+    protected void Update()
     {
-        Counter();
         switch (status)
         {
             case ActionStatus.idle:
                 Resting(); // Those methods can replace a concrete class in future
                 break;
             case ActionStatus.acting:
+                currentState.time += StepTime();
                 Executing();
                 break;
             case ActionStatus.waiting:
                 Casting();
                 break;
-            case ActionStatus.updating:
+            case ActionStatus.completed:
                 Completed();
-                status = ActionStatus.idle;
                 break;
         }
+        Counter();
     }
 
     /// <summary>
@@ -79,37 +80,40 @@ public abstract class Action : MonoBehaviour
             if (counter < delay)
             {
                 status = ActionStatus.waiting;
-                if (timeScaled)
-                    counter += Time.deltaTime;
-                else
-                    counter += Time.unscaledDeltaTime;
+                counter += StepTime();
             }
             else if (counter < delay + delta)
             {
                 status = ActionStatus.acting;
-                if (timeScaled)
-                    counter += Time.deltaTime;
-                else
-                    counter += Time.unscaledDeltaTime;
+                counter += StepTime();
             }
             else
-                status = ActionStatus.updating;
+                status = ActionStatus.completed;
         }
     }
 
-    public abstract void Resting();
+    private float StepTime()
+    {
+        if (timeScaled)
+            return Time.deltaTime;
+        else
+            return Time.unscaledDeltaTime;
+    }
+
+    public abstract void Resting(); // This method may be 
     public abstract void Executing();
     public abstract void Casting();
     public abstract void Completed();
 
-    public abstract WorkerState StateRequired();
-    public abstract WorkerState FinalState();
+    public abstract WorkerState StateRequiredTo(WorkerState desired);
+    public abstract WorkerState FinalStateTo(WorkerState initial);
+    public abstract float EnergyNecessary(WorkerState desired);
 
     public float TimeToDo(WorkerState state)
     {
-        if (state.IsEnoughTo(StateRequired()))
+        if (currentState.IsEnoughTo(StateRequiredTo(state)))
         {
-            return state.energy / state.power;
+            return EnergyNecessary(state) / currentState.power;
         }
         else
         {
@@ -128,8 +132,9 @@ public abstract class Action : MonoBehaviour
     {
         counter = 0f;
         delta = TimeToDo(state);
-        status = ActionStatus.acting;
+        status = ActionStatus.waiting;
         lerpScale = (counter - delay) / delta;
+        finalState = state;
         return delta;
     }
 

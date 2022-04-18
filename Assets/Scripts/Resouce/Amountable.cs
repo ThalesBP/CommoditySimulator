@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 public abstract class Amountable
 {
+    protected Amountable(string name, int amount)
+    {
+        Name = name;
+        Amount = amount;
+    }
     public string Name { get; }
     public int Amount { get; set; }
 

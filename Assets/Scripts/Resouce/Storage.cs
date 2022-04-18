@@ -21,23 +21,31 @@ public class Storage
         }
     }
 
-    public bool HasDebt()
+    public bool HasDebt
     {
-        foreach (KeyValuePair<string, Amountable> amount in storage)
+        get
         {
-            if (amount.Value.Amount < 0)
+            foreach (KeyValuePair<string, Amountable> amount in storage)
             {
-                return false;
+                if (amount.Value.Amount < 0)
+                {
+                    return false;
+                }
             }
+            return true;
         }
-        return true;
     }
-
-    public static explicit operator Amountable[] (Storage a) 
+    public int Amount
     {
-        Amountable[] b = new Amountable[a.storage.Count];
-        a.storage.Values.CopyTo(b, 0);
-        return b;
+        get
+        {
+            int total = 0;
+            foreach (KeyValuePair<string, Amountable> amount in storage)
+            {
+                total += amount.Value.Amount;
+            }
+            return total;
+        }
     }
     public static Storage operator +(Storage a, Storage b)
     {
@@ -70,5 +78,40 @@ public class Storage
             }
         }
         return diff;
+    }
+    public bool IsEnoughTo(Storage required)
+    {
+        return (this - required).HasDebt;
+    }
+
+    public static explicit operator Amountable[](Storage a)
+    {
+        Amountable[] b = new Amountable[a.storage.Count];
+        a.storage.Values.CopyTo(b, 0);
+        return b;
+    }
+
+    public void Consume(Storage feedstock)
+    {
+        if (this.IsEnoughTo(feedstock))
+        {
+            foreach (KeyValuePair<string, Amountable> material in feedstock.storage)
+            {
+                this[material.Value].Amount -= feedstock[material.Value].Amount;
+            }
+        } 
+        else
+        {
+            throw new Exception("Material insufficient");
+        }
+    }
+    public Storage Clone()
+    {
+        Storage clone = new Storage();
+        foreach (KeyValuePair<string, Amountable> amountable in storage)
+        {
+            clone.Include(amountable.Value.Clone());
+        }
+        return clone;
     }
 }

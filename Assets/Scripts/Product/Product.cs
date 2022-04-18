@@ -2,44 +2,33 @@ using System;
 using System.Collections.Generic;
 public class Product : Resource
 {
+    public Product(Product baseline) : base(baseline.Name, baseline.Energy, baseline.Requirements)
+    {
+        workSpent = baseline.WorkSpent;
+    }
     // Create a new product in context
-    public Product(string name, Dictionary<Amountable, int> requirements)
-    {
-        Name = name;
-        Requirements = requirements;
-        Amount = 1;
-    }
+    public Product(string name, float energy, Storage requirements) : base(name, energy, requirements) { }
 
-    public Product(Product baseline, Dictionary<string, Work> Works, int amount)
+    public Product(Product baseline, Dictionary<string, Work> Works, int amount) : this (baseline)
     {
-        Name = baseline.Name;
-        Requirements = baseline.Requirements;
         workSpent = Works;
-        Amount = amount;
     }
 
-    public Product(Product baseline, int amount)
+    public Product(Product baseline, int amount) : this(baseline)
     {
-        Name = baseline.Name;
-        Requirements = baseline.Requirements;
-        workSpent = baseline.workSpent;
         Amount = amount;
     }
 
-    public string Name { get; }
-    public int Amount { get; set; }
-    public float Energy { get; }
     public Dictionary<string, Work> WorkSpent { get { return workSpent; } }
     private Dictionary<string, Work> workSpent { get; set; }
-    public Dictionary<Amountable, int> Requirements { get; }
 
-    public Amountable Produce(int amount, Dictionary<string, Work> works, Dictionary<Amountable, int> feedstock)
+    public Amountable Produce(int amount, Dictionary<string, Work> works, Storage feedstock)
     {
         Consume(feedstock);
         return new Product(this, works, amount);
     }
 
-    public Amountable Share(int amount)
+    public override Amountable Share(int amount)
     {
         if (amount < Amount)
         {
@@ -50,38 +39,23 @@ public class Product : Resource
     }
 
 
-    public bool HasRequisits(Dictionary<Amountable, int> feedstock, float energy)
+    public override bool HasRequisits(Storage feedstock, float energy)
     {
         if (energy < Energy)
         {
             return false;
         }
-
-        foreach (KeyValuePair<Amountable, int> element in feedstock)
-        {
-            if (Requirements.ContainsKey(element.Key))
-            {
-                if (element.Value < Requirements[element.Key])
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return feedstock.IsEnoughTo(Requirements);
     }
 
     // Returns the energy spent
-    public float Consume(Dictionary<Amountable, int> feedstock)
+    public override float Consume(Storage feedstock)
     {
         if (!HasRequisits(feedstock, Energy))
         {
             throw new Exception("Amount insufficient");
         }
-
-        foreach (KeyValuePair<Amountable, int> element in Requirements)
-        {
-            feedstock[element.Key] -= Requirements[element.Key];
-        }
+        feedstock.Consume(Requirements);
         return Energy;
     }
 
@@ -89,5 +63,10 @@ public class Product : Resource
     public override int GetHashCode()
     {
         return Name.GetHashCode();
+    }
+
+    public override Amountable Clone()
+    {
+        return new Product(this);
     }
 }

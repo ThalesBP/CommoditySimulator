@@ -2,10 +2,16 @@ using System.Collections.Generic;
 
 public abstract class Resource : Amountable
 {
-    public Dictionary<Amountable, int> Requirements { get; }
+    public Resource(string name, float energy, Storage requirements) : base(name, 1)
+    {
+        Energy = energy;
+        Requirements = requirements;
+    }
+
+    public Storage Requirements { get; }
     public float Energy { get; }
 
-    public abstract bool HasRequisits(Dictionary<Amountable, int> feedstock, float energy);
+    public abstract bool HasRequisits(Storage feedstock, float energy);
 
-    public abstract float Consume(Dictionary<Amountable, int> feedstock);
+    public abstract float Consume(Storage feedstock);
 }
