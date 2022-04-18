@@ -7,6 +7,7 @@ public class WorkerBehaviour : MonoBehaviour
     public Action currentAction;
     public Storage bag;
     public List<WorkerState> task = new List<WorkerState>();
+    public GameObject[] spots;
     public int i = 0;
 
     void Awake()
@@ -18,19 +19,21 @@ public class WorkerBehaviour : MonoBehaviour
             energy = 1000f
         };
         currentAction = gameObject.AddComponent<Motion>();
-
-        currentAction.nextAction = gameObject.AddComponent<Motion>();
-
-        currentAction.nextAction.nextAction = currentAction;
         currentAction.Initialize(1f, currentState);
-        currentAction.nextAction.Initialize(1f, currentState);
 
-        WorkerState nextState = currentState.Clone();
-        nextState.position = transform.position + 3f * Vector3.up;
-        task.Add(nextState);
-        nextState = currentState.Clone();
-        nextState.position = transform.position + 3f * Vector3.right;
-        task.Add(nextState);
+        Action formerAction = currentAction;
+        for (int i = 0; i < spots.Length; i++)
+        {
+            WorkerState nextState = currentState.Clone();
+            nextState.position = spots[i].transform.position;
+            task.Add(nextState);
+            if (i < spots.Length - 1)
+            {
+                formerAction.nextAction = gameObject.AddComponent<Motion>();
+                formerAction = formerAction.nextAction;
+                formerAction.Initialize(1f, currentState);
+            }
+        }
     }
 
     void Update()
@@ -39,7 +42,10 @@ public class WorkerBehaviour : MonoBehaviour
         if (currentAction.IsCompleted)
         {
             currentAction = currentAction.nextAction;
-            if (i == 0) { i++; }
+            if (currentAction != null)
+            {
+                i++;
+            }
         }
         if (currentAction.IsIdle)
         {
